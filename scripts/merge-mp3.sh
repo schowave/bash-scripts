@@ -54,7 +54,17 @@ done
 ffmpeg -f concat -safe 0 -i merge_list.txt -c copy "$MERGED_MP3"
 
 # Add metadata and album art to merged file
+ALBUM_VALUE=""
+
 while IFS=': ' read -r key value; do
+    if [ "$key" == "album" ]; then
+        ALBUM_VALUE="$value"
+    fi
+
+    if [ "$key" == "title" ]; then
+        value="$ALBUM_VALUE"
+    fi
+
     ffmpeg -i "$MERGED_MP3" -metadata "$key=$value" -codec copy "temp_$MERGED_MP3" && mv "temp_$MERGED_MP3" "$MERGED_MP3"
 done < "$METADATA_TEMP_FILE"
 
