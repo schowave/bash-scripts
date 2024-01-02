@@ -37,9 +37,10 @@ fi
 
 # Extract artist and album for filename
 ARTIST=$(grep -m 1 'artist' "$METADATA_TEMP_FILE" | sed 's/^.*: //')
-ALBUM=$(grep -m 1 'album' "$METADATA_TEMP_FILE" | sed 's/^.*: //')
+ALBUM=$(grep -m 1 'album' "$METADATA_TEMP_FILE" | sed 's/^[^:]*: *//; s/ *$//')
 MERGED_MP3="${ARTIST}-${ALBUM}.mp3"
 MERGED_MP3=${MERGED_MP3//\//_} # Replace any forward slashes to prevent directory issues
+MERGED_MP3=${MERGED_MP3//:/-}  # Replace colons with hyphens
 
 # Merge all MP3 files in the folder
 echo "Merging files into $MERGED_MP3"
