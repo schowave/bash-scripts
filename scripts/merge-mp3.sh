@@ -22,13 +22,22 @@ ALBUM_ART="album_art.jpg"
 for file in "$FOLDER_PATH"/*.mp3; do
     if [ -z "$FIRST_FILE" ] && [ -f "$file" ]; then
         FIRST_FILE="$file"
-        # Extract metadata from the first file
-        ffmpeg -i "$FIRST_FILE" 2>&1 | grep -E 'title|artist|album|date|genre|track' > "$METADATA_TEMP_FILE"
+        # Extract metadata from the first file without modifying the values
+       ffmpeg -i "$FIRST_FILE" 2>&1 | grep -E 'album|album_artist|artist|disc|title|date|genre|track' | while IFS=':' read -r key value; do
+            # Trim leading and trailing spaces from key and value
+            key=$(echo "$key" | xargs)
+            value=$(echo "$value" | xargs)
+            # Write the key-value pair to the file
+            echo "$key=$value"
+        done > "$METADATA_TEMP_FILE"
+
         # Extract album art
         ffmpeg -i "$FIRST_FILE" -an -vcodec copy "$ALBUM_ART"
         break
     fi
 done
+
+
 
 if [ -z "$FIRST_FILE" ]; then
     echo "No MP3 files found in the folder"
@@ -36,8 +45,8 @@ if [ -z "$FIRST_FILE" ]; then
 fi
 
 # Extract artist and album for filename
-ARTIST=$(grep -m 1 'artist' "$METADATA_TEMP_FILE" | sed 's/^.*: //')
-ALBUM=$(grep -m 1 'album' "$METADATA_TEMP_FILE" | sed 's/^[^:]*: *//; s/ *$//')
+ARTIST=$(grep -m 1 '^artist=' "$METADATA_TEMP_FILE" | sed 's/^artist=//')
+ALBUM=$(grep -m 1 '^album=' "$METADATA_TEMP_FILE" | sed 's/^album=//')
 MERGED_MP3="${ARTIST}-${ALBUM}.mp3"
 MERGED_MP3=${MERGED_MP3//\//_} # Replace any forward slashes to prevent directory issues
 MERGED_MP3=${MERGED_MP3//:/-}  # Replace colons with hyphens
@@ -53,20 +62,23 @@ done
 
 ffmpeg -f concat -safe 0 -i merge_list.txt -c copy "$MERGED_MP3"
 
-# Add metadata and album art to merged file
-ALBUM_VALUE=""
 
-while IFS=': ' read -r key value; do
-    if [ "$key" == "album" ]; then
-        ALBUM_VALUE="$value"
-    fi
+METADATA_ARGS=""
 
-    if [ "$key" == "title" ]; then
-        value="$ALBUM_VALUE"
-    fi
+while IFS='=' read -r key value; do
+    # Log the key and value
+    echo "Setting metadata: $key = $value"
 
-    ffmpeg -i "$MERGED_MP3" -metadata "$key=$value" -codec copy "temp_$MERGED_MP3" && mv "temp_$MERGED_MP3" "$MERGED_MP3"
+    # Add the metadata to a string, properly handling special characters
+    METADATA_ARGS+="-metadata $key=\"$value\" "
 done < "$METADATA_TEMP_FILE"
+
+# Apply all the metadata in one ffmpeg command
+FFMPEG_CMD="ffmpeg -i \"$MERGED_MP3\" $METADATA_ARGS -codec copy \"temp_$MERGED_MP3\" && mv \"temp_$MERGED_MP3\" \"$MERGED_MP3\""
+# Echo the command for debugging
+echo "$FFMPEG_CMD"
+# Use eval to correctly interpret and execute the command
+eval "$FFMPEG_CMD"
 
 ffmpeg -i "$MERGED_MP3" -i "$ALBUM_ART" -map 0 -map 1 -codec copy -id3v2_version 3 -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" "temp_$MERGED_MP3" && mv "temp_$MERGED_MP3" "$MERGED_MP3"
 
