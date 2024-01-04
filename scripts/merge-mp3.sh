@@ -23,7 +23,7 @@ for file in "$FOLDER_PATH"/*.mp3; do
     if [ -z "$FIRST_FILE" ] && [ -f "$file" ]; then
         FIRST_FILE="$file"
         # Extract metadata from the first file without modifying the values
-       ffmpeg -i "$FIRST_FILE" 2>&1 | grep -E 'album|album_artist|artist|disc|title|date|genre|track' | while IFS=':' read -r key value; do
+        ffmpeg -i "$FIRST_FILE" 2>&1 | grep -E 'title|artist|album_artist|album|date|track|genre|publisher|encoded_by|composer|performer|disc' | while IFS=':' read -r key value; do
             # Trim leading and trailing spaces from key and value
             key=$(echo "$key" | xargs)
             value=$(echo "$value" | xargs)
