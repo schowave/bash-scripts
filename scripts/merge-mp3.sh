@@ -23,6 +23,7 @@ for file in "$FOLDER_PATH"/*.mp3; do
     if [ -z "$FIRST_FILE" ] && [ -f "$file" ]; then
         FIRST_FILE="$file"
         # Extract metadata from the first file without modifying the values
+        echo "1) ---- EXTRACT METADATA... ----"
         ffmpeg -i "$FIRST_FILE" 2>&1 | grep -E 'title|artist|album_artist|album|date|track|genre|publisher|encoded_by|composer|performer|disc' | while IFS=':' read -r key value; do
             # Trim leading and trailing spaces from key and value
             key=$(echo "$key" | xargs)
@@ -32,6 +33,7 @@ for file in "$FOLDER_PATH"/*.mp3; do
         done > "$METADATA_TEMP_FILE"
 
         # Extract album art
+        echo "2) ---- EXTRACT ALBUM ART... ----"
         ffmpeg -i "$FIRST_FILE" -an -vcodec copy "$ALBUM_ART"
         break
     fi
@@ -59,7 +61,7 @@ for file in "$FOLDER_PATH"/*.mp3; do
         echo "file '$file'" >> merge_list.txt
     fi
 done
-
+echo "3) ---- CONCAT MP3s... ----"
 ffmpeg -f concat -safe 0 -i merge_list.txt -c copy "$MERGED_MP3"
 
 
@@ -88,8 +90,10 @@ done < "$METADATA_TEMP_FILE"
 # Apply all the metadata in one ffmpeg command
 FFMPEG_CMD="ffmpeg -i \"$MERGED_MP3\" $METADATA_ARGS -codec copy \"temp_$MERGED_MP3\" && mv \"temp_$MERGED_MP3\" \"$MERGED_MP3\""
 echo "$FFMPEG_CMD"  # Echo the command for debugging
+echo "4) ---- SET METADATA... ----"
 eval "$FFMPEG_CMD"  # Use eval to correctly interpret and execute the command
 
+echo "5) ---- FINISH FILE... ----"
 ffmpeg -i "$MERGED_MP3" -i "$ALBUM_ART" -map 0 -map 1 -codec copy -id3v2_version 3 -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" "temp_$MERGED_MP3" && mv "temp_$MERGED_MP3" "$MERGED_MP3"
 
 # Clean up temporary files
