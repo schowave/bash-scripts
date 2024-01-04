@@ -65,20 +65,30 @@ ffmpeg -f concat -safe 0 -i merge_list.txt -c copy "$MERGED_MP3"
 
 METADATA_ARGS=""
 
+ALBUM_TITLE=""  # Variable to store the album title
+
 while IFS='=' read -r key value; do
+    # Trim leading and trailing spaces from key and value
+    key=$(echo "$key" | xargs)
+    value=$(echo "$value" | xargs)
+
+    if [ "$key" == "album" ]; then
+        ALBUM_TITLE="$value"
+        # Set the title metadata to the album name
+        METADATA_ARGS+="-metadata title=\"$ALBUM_TITLE\" "
+        METADATA_ARGS+="-metadata album=\"$ALBUM_TITLE\" "
+    elif [ "$key" != "title" ]; then
+        # Add all metadata except for title
+        METADATA_ARGS+="-metadata $key=\"$value\" "
+    fi
     # Log the key and value
     echo "Setting metadata: $key = $value"
-
-    # Add the metadata to a string, properly handling special characters
-    METADATA_ARGS+="-metadata $key=\"$value\" "
 done < "$METADATA_TEMP_FILE"
 
 # Apply all the metadata in one ffmpeg command
 FFMPEG_CMD="ffmpeg -i \"$MERGED_MP3\" $METADATA_ARGS -codec copy \"temp_$MERGED_MP3\" && mv \"temp_$MERGED_MP3\" \"$MERGED_MP3\""
-# Echo the command for debugging
-echo "$FFMPEG_CMD"
-# Use eval to correctly interpret and execute the command
-eval "$FFMPEG_CMD"
+echo "$FFMPEG_CMD"  # Echo the command for debugging
+eval "$FFMPEG_CMD"  # Use eval to correctly interpret and execute the command
 
 ffmpeg -i "$MERGED_MP3" -i "$ALBUM_ART" -map 0 -map 1 -codec copy -id3v2_version 3 -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" "temp_$MERGED_MP3" && mv "temp_$MERGED_MP3" "$MERGED_MP3"
 
